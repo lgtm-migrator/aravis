@@ -33,6 +33,7 @@ G_BEGIN_DECLS
 #define ARV_GVSP_PACKET_ID_MASK			0x00ffffff
 #define ARV_GVSP_PACKET_INFOS_CONTENT_TYPE_MASK	0x7f000000
 #define ARV_GVSP_PACKET_INFOS_CONTENT_TYPE_POS	24
+#define ARV_GVSP_PACKET_INFOS_N_PARTS_MASK   	0x000000ff
 
 /**
  * ArvGvspPacketType:
@@ -52,13 +53,22 @@ typedef enum {
  * @ARV_GVSP_CONTENT_TYPE_DATA_LEADER: leader packet
  * @ARV_GVSP_CONTENT_TYPE_DATA_TRAILER: trailer packet
  * @ARV_GVSP_CONTENT_TYPE_DATA_BLOCK: data packet
+ * @ARV_GVSP_CONTENT_TYPE_ALL_IN: leader + data + trailer packet
+ * @ARV_GVSP_CONTENT_TYPE_H264: h264 data packet
+ * @ARV_GVSP_CONTENT_TYPE_MULTIZONE: multizone data packet
+ * @ARV_GVSP_CONTENT_TYPE_MULTIPART: multipart data packet
+ * @ARV_GVSP_CONTENT_TYPE_GENDC: GenDC data packet
  */
 
 typedef enum {
 	ARV_GVSP_CONTENT_TYPE_DATA_LEADER = 	0x01,
 	ARV_GVSP_CONTENT_TYPE_DATA_TRAILER = 	0x02,
 	ARV_GVSP_CONTENT_TYPE_DATA_BLOCK =	0x03,
-	ARV_GVSP_CONTENT_TYPE_ALL_IN =		0x04
+	ARV_GVSP_CONTENT_TYPE_ALL_IN =		0x04,
+        ARV_GVSP_CONTENT_TYPE_H264 =            0x05,
+        ARV_GVSP_CONTENT_TYPE_MULTIZONE =       0x06,
+        ARV_GVSP_CONTENT_TYPE_MULTIPART =       0x07,
+        ARV_GVSP_CONTENT_TYPE_GENDC =           0x08
 } ArvGvspContentType;
 
 /**
@@ -72,6 +82,7 @@ typedef enum {
  * @ARV_GVSP_PAYLOAD_TYPE_JPEG2000: JPEG2000 data
  * @ARV_GVSP_PAYLOAD_TYPE_H264: h264 data
  * @ARV_GVSP_PAYLOAD_TYPE_MULTIZONE_IMAGE: multizone image
+ * @ARV_GVSP_PAYLOAD_TYPE_MULTIPART: multipart payload
 */
 
 typedef enum {
@@ -84,6 +95,7 @@ typedef enum {
 	ARV_GVSP_PAYLOAD_TYPE_JPEG2000 = 		0x0007,
 	ARV_GVSP_PAYLOAD_TYPE_H264 = 			0x0008,
 	ARV_GVSP_PAYLOAD_TYPE_MULTIZONE_IMAGE = 	0x0009,
+	ARV_GVSP_PAYLOAD_TYPE_MULTIPART =        	0x000a,
 	ARV_GVSP_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK = 	0x4001,
 
 } ArvGvspPayloadType;
@@ -298,11 +310,32 @@ arv_gvsp_packet_get_buffer_payload_type (const ArvGvspPacket *packet)
 			return ARV_BUFFER_PAYLOAD_TYPE_H264;
 		case ARV_GVSP_PAYLOAD_TYPE_MULTIZONE_IMAGE:
 			return ARV_BUFFER_PAYLOAD_TYPE_MULTIZONE_IMAGE;
+		case ARV_GVSP_PAYLOAD_TYPE_MULTIPART:
+			return ARV_BUFFER_PAYLOAD_TYPE_MULTIPART;
 		case ARV_GVSP_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK:
 			return ARV_BUFFER_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK;
 	}
 
 	return ARV_BUFFER_PAYLOAD_TYPE_UNKNOWN;
+}
+
+static inline guint8
+arv_gvsp_packet_get_n_parts (const ArvGvspPacket *packet)
+{
+        if (arv_gvsp_packet_get_content_type (packet) != ARV_GVSP_CONTENT_TYPE_DATA_LEADER)
+                return 0;
+
+        if (arv_gvsp_packet_get_buffer_payload_type (packet) == ARV_BUFFER_PAYLOAD_TYPE_MULTIPART) {
+                if (arv_gvsp_packet_has_extended_ids (packet)) {
+                        ArvGvspExtendedHeader *header = (void *) &packet->header;
+                        return (g_ntohl (header->packet_infos) & ARV_GVSP_PACKET_INFOS_N_PARTS_MASK);
+                } else {
+                        ArvGvspHeader *header = (void *) &packet->header;
+                        return (g_ntohl (header->packet_infos) & ARV_GVSP_PACKET_INFOS_N_PARTS_MASK);
+                }
+        }
+
+        return 1;
 }
 
 static inline guint32

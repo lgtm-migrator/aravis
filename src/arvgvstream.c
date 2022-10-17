@@ -781,6 +781,11 @@ _process_packet (ArvGvStreamThreadData *thread_data, const ArvGvspPacket *packet
 							     packet_size);
                                         thread_data->n_transferred_bytes += packet_size;
 					break;
+				case ARV_GVSP_CONTENT_TYPE_MULTIPART:
+                                        arv_debug_stream_thread ("Multipart packet id = %d", packet_id);
+					thread_data->n_ignored_packets++;
+                                        thread_data->n_ignored_bytes += packet_size;
+					break;
 				case ARV_GVSP_CONTENT_TYPE_DATA_TRAILER:
 					_process_data_trailer (thread_data, frame, packet_id);
                                         thread_data->n_transferred_bytes += packet_size;

@@ -151,9 +151,12 @@ arv_uvsp_packet_get_frame_id (ArvUvspPacket *packet)
 }
 
 static inline void
-arv_uvsp_packet_get_region (ArvUvspPacket *packet, guint32 *width, guint32 *height, guint32 *x_offset, guint32 *y_offset)
+arv_uvsp_packet_get_region (ArvUvspPacket *packet,
+                            guint32 *width, guint32 *height,
+                            guint32 *x_offset, guint32 *y_offset,
+                            guint32 *x_padding, guint32 *y_padding)
 {
-	ArvUvspLeader *leader;
+        ArvUvspLeader *leader;
 
 	if (packet == NULL)
 		return;
@@ -163,6 +166,8 @@ arv_uvsp_packet_get_region (ArvUvspPacket *packet, guint32 *width, guint32 *heig
 	*height = GUINT32_FROM_LE (leader->infos.height);
 	*x_offset = GUINT32_FROM_LE (leader->infos.x_offset);
 	*y_offset = GUINT32_FROM_LE (leader->infos.y_offset);
+	*x_padding = GUINT32_FROM_LE (leader->infos.x_padding);
+        *y_padding = 0;
 }
 
 static inline ArvPixelFormat

@@ -50,9 +50,9 @@ typedef enum {
 
 /**
  * ArvGvspContentType:
- * @ARV_GVSP_CONTENT_TYPE_DATA_LEADER: leader packet
- * @ARV_GVSP_CONTENT_TYPE_DATA_TRAILER: trailer packet
- * @ARV_GVSP_CONTENT_TYPE_DATA_BLOCK: data packet
+ * @ARV_GVSP_CONTENT_TYPE_LEADER: leader packet
+ * @ARV_GVSP_CONTENT_TYPE_TRAILER: trailer packet
+ * @ARV_GVSP_CONTENT_TYPE_PAYLOAD: data packet
  * @ARV_GVSP_CONTENT_TYPE_ALL_IN: leader + data + trailer packet
  * @ARV_GVSP_CONTENT_TYPE_H264: h264 data packet
  * @ARV_GVSP_CONTENT_TYPE_MULTIZONE: multizone data packet
@@ -61,9 +61,9 @@ typedef enum {
  */
 
 typedef enum {
-	ARV_GVSP_CONTENT_TYPE_DATA_LEADER = 	0x01,
-	ARV_GVSP_CONTENT_TYPE_DATA_TRAILER = 	0x02,
-	ARV_GVSP_CONTENT_TYPE_DATA_BLOCK =	0x03,
+	ARV_GVSP_CONTENT_TYPE_LEADER = 	        0x01,
+	ARV_GVSP_CONTENT_TYPE_TRAILER = 	0x02,
+	ARV_GVSP_CONTENT_TYPE_PAYLOAD =	        0x03,
 	ARV_GVSP_CONTENT_TYPE_ALL_IN =		0x04,
         ARV_GVSP_CONTENT_TYPE_H264 =            0x05,
         ARV_GVSP_CONTENT_TYPE_MULTIZONE =       0x06,
@@ -73,6 +73,7 @@ typedef enum {
 
 /**
  * ArvGvspPayloadType:
+ * @ARV_GVSP_PAYLOAD_TYPE_UNKNOWN: unknown payload type
  * @ARV_GVSP_PAYLOAD_TYPE_IMAGE: image data
  * @ARV_GVSP_PAYLOAD_TYPE_RAWDATA: raw data
  * @ARV_GVSP_PAYLOAD_TYPE_FILE: file
@@ -83,9 +84,11 @@ typedef enum {
  * @ARV_GVSP_PAYLOAD_TYPE_H264: h264 data
  * @ARV_GVSP_PAYLOAD_TYPE_MULTIZONE_IMAGE: multizone image
  * @ARV_GVSP_PAYLOAD_TYPE_MULTIPART: multipart payload
+ * @ARV_GVSP_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK: image + chunk data
 */
 
 typedef enum {
+	ARV_GVSP_PAYLOAD_TYPE_UNKNOWN =			0x0000,
 	ARV_GVSP_PAYLOAD_TYPE_IMAGE =			0x0001,
 	ARV_GVSP_PAYLOAD_TYPE_RAWDATA = 		0x0002,
 	ARV_GVSP_PAYLOAD_TYPE_FILE = 			0x0003,
@@ -96,9 +99,23 @@ typedef enum {
 	ARV_GVSP_PAYLOAD_TYPE_H264 = 			0x0008,
 	ARV_GVSP_PAYLOAD_TYPE_MULTIZONE_IMAGE = 	0x0009,
 	ARV_GVSP_PAYLOAD_TYPE_MULTIPART =        	0x000a,
-	ARV_GVSP_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK = 	0x4001,
-
+        ARV_GVSP_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK =    0x4001
 } ArvGvspPayloadType;
+
+typedef enum {
+        ARV_GVSP_MULTIPART_DATA_TYPE_2DPLANEBIPLANAR =  0x0002,
+        ARV_GVSP_MULTIPART_DATA_TYPE_2DPLANETRIPLANAR = 0x0003,
+        ARV_GVSP_MULTIPART_DATA_TYPE_2DPLANEQUADPLANAR =0x0004,
+        ARV_GVSP_MULTIPART_DATA_TYPE_3DIMAGE =          0x0005,
+        ARV_GVSP_MULTIPART_DATA_TYPE_3DPLANEBIPLANAR =  0x0006,
+        ARV_GVSP_MULTIPART_DATA_TYPE_3DPLANETRIPLANAR = 0x0007,
+        ARV_GVSP_MULTIPART_DATA_TYPE_3DPLANEQUADPLANAR =0x0008,
+        ARV_GVSP_MULTIPART_DATA_TYPE_CONFIDENCEMAP =    0x0009,
+        ARV_GVSP_MULTIPART_DATA_TYPE_CHUNKDATA =        0x000A,
+        ARV_GVSP_MULTIPART_DATA_TYPE_JPEG =             0x000B,
+        ARV_GVSP_MULTIPART_DATA_TYPE_JPEG2000 =         0x000C,
+        ARV_GVSP_MULTIPART_DATA_TYPE_DEVICESPECIFIC =   0x8000,
+} ArvGvspMultipartDataType;
 
 #pragma pack(push,1)
 
@@ -126,7 +143,18 @@ typedef struct {
 } ArvGvspExtendedHeader;
 
 /**
- * ArvGvspDataLeader:
+ * ArvGvspLeader:
+ * @flags: generic flags
+ * @payload_type: ID of the payload type
+ */
+
+typedef struct {
+	guint16 flags;
+	guint16 payload_type;
+} ArvGvspLeader;
+
+/**
+ * ArvGvspImageLeader:
  * @flags: generic flags
  * @payload_type: ID of the payload type
  * @timestamp_high: most significant bits of frame timestamp
@@ -137,7 +165,7 @@ typedef struct {
  * @x_offset: frame x offset, in pixels
  * @y_offset: frame y offset, in pixels
  *
- * GVSP data leader packet data area.
+ * GVSP image leader packet data area.
  */
 
 typedef struct {
@@ -150,10 +178,40 @@ typedef struct {
 	guint32 height;
 	guint32	x_offset;
 	guint32	y_offset;
-} ArvGvspDataLeader;
+	guint16	x_padding;
+	guint16	y_padding;
+} ArvGvspImageLeader;
+
+typedef struct {
+        guint16 ArvGvspMultipartDataType;
+        guint16 part_length_high;
+        guint32 part_length_low;
+	guint32 pixel_format;
+        guint16 reserved_0;
+        guint8 source_id;
+        guint8 additional_zones;
+        guint32 zone_directions;
+        guint16 data_purpose_id;
+        guint16 region_id;
+        guint32 width;
+        guint32 height;
+        guint32 x_offset;
+        guint32 y_offset;
+        guint16 x_padding;
+        guint16 y_padding;
+        guint32 reserved_1;
+} ArvGvspPartInfos; /* 48 bytes */
+
+typedef struct {
+	guint16 flags;
+	guint16 payload_type;
+	guint32 timestamp_high;
+	guint32 timestamp_low;
+        ArvGvspPartInfos parts[];
+} ArvGvspMultipartLeader;
 
 /**
- * ArvGvspDataTrailer:
+ * ArvGvspTrailer:
  * @payload_type: ID of the payload type
  * @data0: unused
  *
@@ -163,7 +221,7 @@ typedef struct {
 typedef struct {
 	guint32 payload_type;
 	guint32 data0;
-} ArvGvspDataTrailer;
+} ArvGvspTrailer;
 
 
 /**
@@ -192,14 +250,15 @@ typedef struct {
 
 #pragma pack(pop)
 
-ArvGvspPacket *		arv_gvsp_packet_new_data_leader		(guint16 frame_id, guint32 packet_id,
+ArvGvspPacket *		arv_gvsp_packet_new_image_leader	(guint16 frame_id, guint32 packet_id,
 								 guint64 timestamp, ArvPixelFormat pixel_format,
 								 guint32 width, guint32 height,
 								 guint32 x_offset, guint32 y_offset,
+								 guint32 x_padding, guint32 y_padding,
 								 void *buffer, size_t *buffer_size);
 ArvGvspPacket *		arv_gvsp_packet_new_data_trailer	(guint16 frame_id, guint32 packet_id,
 								 void *buffer, size_t *buffer_size);
-ArvGvspPacket *		arv_gvsp_packet_new_data_block		(guint16 frame_id, guint32 packet_id,
+ArvGvspPacket *		arv_gvsp_packet_new_payload		(guint16 frame_id, guint32 packet_id,
 								 size_t size, void *data,
 								 void *buffer, size_t *buffer_size);
 char * 			arv_gvsp_packet_to_string 		(const ArvGvspPacket *packet, size_t packet_size);
@@ -237,6 +296,47 @@ arv_gvsp_packet_get_content_type (const ArvGvspPacket *packet)
 		return (ArvGvspContentType) ((g_ntohl (header->packet_infos) & ARV_GVSP_PACKET_INFOS_CONTENT_TYPE_MASK) >>
 					     ARV_GVSP_PACKET_INFOS_CONTENT_TYPE_POS);
 	}
+}
+
+static inline gboolean
+arv_gvsp_packet_is_valid (const ArvGvspPacket *packet, size_t size)
+{
+        size_t header_size;
+
+        g_assert_not_reached (); /* Incomplete implementation */
+
+        if (G_UNLIKELY (size < 4))
+            return FALSE;
+
+        header_size = arv_gvsp_packet_has_extended_ids (packet) ?
+                sizeof (ArvGvspExtendedHeader) : sizeof (ArvGvspHeader);
+
+        switch (arv_gvsp_packet_get_content_type (packet)) {
+                case ARV_GVSP_CONTENT_TYPE_LEADER:
+                        if (G_UNLIKELY (size < sizeof (ArvGvspPacket) + header_size + sizeof (ArvGvspLeader)))
+                                return FALSE;
+                        break;
+                case ARV_GVSP_CONTENT_TYPE_TRAILER:
+                        if (G_UNLIKELY (size < sizeof (ArvGvspPacket) + header_size + sizeof (ArvGvspTrailer)))
+                                return FALSE;
+                        break;
+                case ARV_GVSP_CONTENT_TYPE_PAYLOAD:
+                        if (G_UNLIKELY (size < sizeof (ArvGvspPacket) + header_size + sizeof (ArvGvspTrailer)))
+                                return FALSE;
+                        break;
+                case ARV_GVSP_CONTENT_TYPE_ALL_IN:
+                        return FALSE;
+                case ARV_GVSP_CONTENT_TYPE_H264:
+                        return FALSE;
+                case ARV_GVSP_CONTENT_TYPE_MULTIZONE:
+                        return FALSE;
+                case ARV_GVSP_CONTENT_TYPE_MULTIPART:
+                        return FALSE;
+                case ARV_GVSP_CONTENT_TYPE_GENDC:
+                        return FALSE;
+        }
+
+        return FALSE;
 }
 
 static inline guint32
@@ -281,17 +381,30 @@ arv_gvsp_packet_get_data (const ArvGvspPacket *packet)
 	}
 }
 
+static inline ArvGvspPayloadType
+arv_gvsp_packet_get_payload_type (const ArvGvspPacket *packet)
+{
+        if (arv_gvsp_packet_get_content_type (packet) == ARV_GVSP_CONTENT_TYPE_LEADER) {
+                ArvGvspLeader *leader;
+
+                leader = arv_gvsp_packet_get_data (packet);
+
+                return (ArvGvspPayloadType) g_ntohs (leader->payload_type);
+        }
+
+        return ARV_GVSP_PAYLOAD_TYPE_UNKNOWN;
+}
+
 static inline ArvBufferPayloadType
 arv_gvsp_packet_get_buffer_payload_type (const ArvGvspPacket *packet)
 {
-	ArvGvspDataLeader *leader;
 	ArvGvspPayloadType gvsp_payload_type;
 
-	leader = arv_gvsp_packet_get_data (packet);
-
-	gvsp_payload_type = (ArvGvspPayloadType) g_ntohs (leader->payload_type);
+	gvsp_payload_type = arv_gvsp_packet_get_payload_type (packet);
 
 	switch (gvsp_payload_type) {
+		case ARV_GVSP_PAYLOAD_TYPE_UNKNOWN:
+			return ARV_BUFFER_PAYLOAD_TYPE_UNKNOWN;
 		case ARV_GVSP_PAYLOAD_TYPE_IMAGE:
 			return ARV_BUFFER_PAYLOAD_TYPE_IMAGE;
 		case ARV_GVSP_PAYLOAD_TYPE_RAWDATA:
@@ -320,12 +433,12 @@ arv_gvsp_packet_get_buffer_payload_type (const ArvGvspPacket *packet)
 }
 
 static inline guint8
-arv_gvsp_packet_get_n_parts (const ArvGvspPacket *packet)
+arv_gvsp_packet_get_multipart_n_parts (const ArvGvspPacket *packet)
 {
-        if (arv_gvsp_packet_get_content_type (packet) != ARV_GVSP_CONTENT_TYPE_DATA_LEADER)
+        if (arv_gvsp_packet_get_content_type (packet) != ARV_GVSP_CONTENT_TYPE_LEADER)
                 return 0;
 
-        if (arv_gvsp_packet_get_buffer_payload_type (packet) == ARV_BUFFER_PAYLOAD_TYPE_MULTIPART) {
+        if (arv_gvsp_packet_get_payload_type (packet) == ARV_GVSP_PAYLOAD_TYPE_MULTIPART) {
                 if (arv_gvsp_packet_has_extended_ids (packet)) {
                         ArvGvspExtendedHeader *header = (void *) &packet->header;
                         return (g_ntohl (header->packet_infos) & ARV_GVSP_PACKET_INFOS_N_PARTS_MASK);
@@ -335,68 +448,54 @@ arv_gvsp_packet_get_n_parts (const ArvGvspPacket *packet)
                 }
         }
 
-        return 1;
+        return 0;
 }
 
-static inline guint32
-arv_gvsp_packet_get_x_offset (const ArvGvspPacket *packet)
+static inline gboolean
+arv_gvsp_packet_get_image_infos (const ArvGvspPacket *packet,
+                                 guint64 *timestamp,
+                                 ArvPixelFormat *pixel_format,
+                                 guint32 *width, guint32 *height,
+                                 guint32 *x_offset, guint32 *y_offset,
+                                 guint32 *x_padding, guint32 *y_padding)
 {
-	ArvGvspDataLeader *leader;
+        ArvGvspPayloadType payload_type;
 
-	leader = arv_gvsp_packet_get_data (packet);
-	return g_ntohl (leader->x_offset);
-}
+        if (arv_gvsp_packet_get_content_type (packet) != ARV_GVSP_CONTENT_TYPE_LEADER)
+                return FALSE;
 
-static inline guint32
-arv_gvsp_packet_get_y_offset (const ArvGvspPacket *packet)
-{
-	ArvGvspDataLeader *leader;
+        payload_type = arv_gvsp_packet_get_payload_type (packet);
 
-	leader = arv_gvsp_packet_get_data (packet);
-	return g_ntohl (leader->y_offset);
-}
+        if (payload_type == ARV_GVSP_PAYLOAD_TYPE_IMAGE ||
+            payload_type == ARV_GVSP_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA ||
+            payload_type == ARV_GVSP_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK) {
+                ArvGvspImageLeader *leader;
 
-static inline guint32
-arv_gvsp_packet_get_width (const ArvGvspPacket *packet)
-{
-	ArvGvspDataLeader *leader;
+                leader = arv_gvsp_packet_get_data (packet);
 
-	leader = arv_gvsp_packet_get_data (packet);
-	return g_ntohl (leader->width);
-}
+                *timestamp = ( (guint64) g_ntohl (leader->timestamp_high) << 32) | g_ntohl (leader->timestamp_low);
+                *pixel_format = g_ntohl (leader->pixel_format);
+                *width = g_ntohl (leader->width);
+                *height = g_ntohl (leader->height);
+                *x_offset = g_ntohl (leader->x_offset);
+                *y_offset = g_ntohl (leader->y_offset);
+                *x_padding = g_ntohl (leader->x_padding);
+                *y_padding = g_ntohl (leader->y_padding);
 
-static inline guint32
-arv_gvsp_packet_get_height (const ArvGvspPacket *packet)
-{
-	ArvGvspDataLeader *leader;
+                return TRUE;
+        }
 
-	leader = arv_gvsp_packet_get_data (packet);
-	return g_ntohl (leader->height);
-}
-
-static inline ArvPixelFormat
-arv_gvsp_packet_get_pixel_format (const ArvGvspPacket *packet)
-{
-	ArvGvspDataLeader *leader;
-
-	leader = arv_gvsp_packet_get_data (packet);
-	return (ArvPixelFormat) g_ntohl (leader->pixel_format);
+        return FALSE;
 }
 
 static inline guint64
-arv_gvsp_packet_get_timestamp (const ArvGvspPacket *packet, guint64 timestamp_tick_frequency)
+arv_gvsp_timestamp_to_ns (guint64 timestamp, guint64 timestamp_tick_frequency)
 {
-	ArvGvspDataLeader *leader;
 	guint64 timestamp_s;
 	guint64 timestamp_ns;
-	guint64 timestamp;
 
 	if (timestamp_tick_frequency < 1)
 		return 0;
-
-	leader = arv_gvsp_packet_get_data (packet);
-
-	timestamp = ( (guint64) g_ntohl (leader->timestamp_high) << 32) | g_ntohl (leader->timestamp_low);
 
 	timestamp_s = timestamp / timestamp_tick_frequency;
 	timestamp_ns = ((timestamp % timestamp_tick_frequency) * 1000000000) / timestamp_tick_frequency;

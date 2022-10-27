@@ -64,19 +64,20 @@ arv_gvsp_packet_new (ArvGvspContentType content_type,
 }
 
 ArvGvspPacket *
-arv_gvsp_packet_new_data_leader	(guint16 frame_id, guint32 packet_id,
-				 guint64 timestamp, ArvPixelFormat pixel_format,
-				 guint32 width, guint32 height,
-				 guint32 x_offset, guint32 y_offset,
-				 void *buffer, size_t *buffer_size)
+arv_gvsp_packet_new_image_leader (guint16 frame_id, guint32 packet_id,
+                                  guint64 timestamp, ArvPixelFormat pixel_format,
+                                  guint32 width, guint32 height,
+                                  guint32 x_offset, guint32 y_offset,
+                                  guint32 x_padding, guint32 y_padding,
+                                  void *buffer, size_t *buffer_size)
 {
-	ArvGvspPacket *packet;
+        ArvGvspPacket *packet;
 
-	packet = arv_gvsp_packet_new (ARV_GVSP_CONTENT_TYPE_DATA_LEADER,
-				      frame_id, packet_id, sizeof (ArvGvspDataLeader), buffer, buffer_size);
+	packet = arv_gvsp_packet_new (ARV_GVSP_CONTENT_TYPE_LEADER,
+				      frame_id, packet_id, sizeof (ArvGvspImageLeader), buffer, buffer_size);
 
 	if (packet != NULL) {
-		ArvGvspDataLeader *leader;
+		ArvGvspImageLeader *leader;
 
 		leader = arv_gvsp_packet_get_data (packet);
 		leader->flags = 0;
@@ -88,6 +89,8 @@ arv_gvsp_packet_new_data_leader	(guint16 frame_id, guint32 packet_id,
 		leader->height = g_htonl (height);
 		leader->x_offset = g_htonl (x_offset);
 		leader->y_offset = g_htonl (y_offset);
+		leader->x_padding = g_htonl (x_padding);
+		leader->y_padding = g_htonl (y_padding);
 	}
 
 	return packet;
@@ -99,11 +102,11 @@ arv_gvsp_packet_new_data_trailer (guint16 frame_id, guint32 packet_id,
 {
 	ArvGvspPacket *packet;
 
-	packet = arv_gvsp_packet_new (ARV_GVSP_CONTENT_TYPE_DATA_TRAILER,
-				      frame_id, packet_id, sizeof (ArvGvspDataTrailer), buffer, buffer_size);
+	packet = arv_gvsp_packet_new (ARV_GVSP_CONTENT_TYPE_TRAILER,
+				      frame_id, packet_id, sizeof (ArvGvspTrailer), buffer, buffer_size);
 
 	if (packet != NULL) {
-		ArvGvspDataTrailer *trailer;
+		ArvGvspTrailer *trailer;
 
 		trailer = arv_gvsp_packet_get_data (packet);
 		trailer->payload_type = g_htonl (ARV_GVSP_PAYLOAD_TYPE_IMAGE);
@@ -114,13 +117,13 @@ arv_gvsp_packet_new_data_trailer (guint16 frame_id, guint32 packet_id,
 }
 
 ArvGvspPacket *
-arv_gvsp_packet_new_data_block (guint16 frame_id, guint32 packet_id,
-				size_t size, void *data,
-				void *buffer, size_t *buffer_size)
+arv_gvsp_packet_new_payload (guint16 frame_id, guint32 packet_id,
+                             size_t size, void *data,
+                             void *buffer, size_t *buffer_size)
 {
-	ArvGvspPacket *packet;
+        ArvGvspPacket *packet;
 
-	packet = arv_gvsp_packet_new (ARV_GVSP_CONTENT_TYPE_DATA_BLOCK,
+	packet = arv_gvsp_packet_new (ARV_GVSP_CONTENT_TYPE_PAYLOAD,
 				      frame_id, packet_id, size, buffer, buffer_size);
 
 	if (packet != NULL)
@@ -163,8 +166,8 @@ arv_gvsp_content_type_to_string (ArvGvspContentType value)
 char *
 arv_gvsp_packet_to_string (const ArvGvspPacket *packet, size_t packet_size)
 {
-	ArvGvspDataLeader *leader;
 	ArvGvspPacketType packet_type;
+        ArvGvspPayloadType payload_type;
 	ArvGvspContentType content_type;
 	GString *string;
 	char *c_string;
@@ -174,18 +177,22 @@ arv_gvsp_packet_to_string (const ArvGvspPacket *packet, size_t packet_size)
 	packet_type = arv_gvsp_packet_get_packet_type (packet);
 	content_type = arv_gvsp_packet_get_content_type (packet);
 
-	g_string_append_printf (string, "packet_type  = %8s (0x%04x)\n", arv_gvsp_packet_type_to_string (packet_type), packet_type);
-	g_string_append_printf (string, "content_type = %8s (0x%04x)\n", arv_gvsp_content_type_to_string (content_type), content_type);
+	g_string_append_printf (string, "packet_type  = %8s (0x%04x)\n",
+                                arv_gvsp_packet_type_to_string (packet_type), packet_type);
+	g_string_append_printf (string, "content_type = %8s (0x%04x)\n",
+                                arv_gvsp_content_type_to_string (content_type), content_type);
 	g_string_append_printf (string, "frame_id     = %8" G_GUINT64_FORMAT " %s\n",
 				arv_gvsp_packet_get_frame_id (packet),
 				arv_gvsp_packet_has_extended_ids (packet) ? " extended" : "");
-	g_string_append_printf (string, "packet_id    = %8u\n", arv_gvsp_packet_get_packet_id (packet));
-	g_string_append_printf (string, "data_size    = %8" G_GSIZE_FORMAT "\n", arv_gvsp_packet_get_data_size (packet, packet_size));
+	g_string_append_printf (string, "packet_id    = %8u\n",
+                                arv_gvsp_packet_get_packet_id (packet));
+	g_string_append_printf (string, "data_size    = %8" G_GSIZE_FORMAT "\n",
+                                arv_gvsp_packet_get_data_size (packet, packet_size));
 
 	switch (content_type) {
-		case ARV_GVSP_CONTENT_TYPE_DATA_LEADER:
-			leader = arv_gvsp_packet_get_data (packet);
-			switch (g_ntohs (leader->payload_type)) {
+		case ARV_GVSP_CONTENT_TYPE_LEADER:
+                        payload_type = arv_gvsp_packet_get_payload_type (packet);
+			switch (payload_type) {
 				case ARV_GVSP_PAYLOAD_TYPE_IMAGE:
 					g_string_append (string, "payload_type = image\n");
 					break;
@@ -201,25 +208,69 @@ arv_gvsp_packet_to_string (const ArvGvspPacket *packet, size_t packet_size)
 				case ARV_GVSP_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK:
 					g_string_append (string, "payload_type = image extended chunk\n");
 					break;
+				case ARV_GVSP_PAYLOAD_TYPE_MULTIPART:
+					g_string_append (string, "payload_type = multipart\n");
+					break;
+				case ARV_GVSP_PAYLOAD_TYPE_JPEG:
+					g_string_append (string, "payload_type = jpeg\n");
+					break;
+				case ARV_GVSP_PAYLOAD_TYPE_JPEG2000:
+					g_string_append (string, "payload_type = jpeg2000\n");
+					break;
+				case ARV_GVSP_PAYLOAD_TYPE_RAWDATA:
+					g_string_append (string, "payload_type = raw data\n");
+					break;
+				case ARV_GVSP_PAYLOAD_TYPE_FILE:
+					g_string_append (string, "payload_type = file\n");
+					break;
+				case ARV_GVSP_PAYLOAD_TYPE_MULTIZONE_IMAGE:
+					g_string_append (string, "payload_type = multizone image\n");
+					break;
 				default:
 					g_string_append_printf (string, "payload_type = unknown (0x%08x)\n",
-								g_ntohs (leader->payload_type));
+                                                                payload_type);
 					break;
 			}
-			g_string_append_printf (string, "pixel format = %s\n",
-						arv_pixel_format_to_gst_caps_string (g_ntohl (leader->pixel_format)));
-			g_string_append_printf (string, "width        = %d\n", g_ntohl (leader->width));
-			g_string_append_printf (string, "height       = %d\n", g_ntohl (leader->height));
-			g_string_append_printf (string, "x_offset     = %d\n", g_ntohl (leader->x_offset));
-			g_string_append_printf (string, "y_offset     = %d\n", g_ntohl (leader->y_offset));
-			break;
-		case ARV_GVSP_CONTENT_TYPE_DATA_TRAILER:
-			break;
-		case ARV_GVSP_CONTENT_TYPE_DATA_BLOCK:
-			break;
-		case ARV_GVSP_CONTENT_TYPE_ALL_IN:
-			break;
-	}
+
+                        if (payload_type == ARV_GVSP_PAYLOAD_TYPE_IMAGE ||
+                            payload_type == ARV_GVSP_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK) {
+                                guint64 timestamp;
+                                ArvPixelFormat pixel_format;
+                                guint32 width, height, x_offset, y_offset, x_padding, y_padding;
+
+                                if (arv_gvsp_packet_get_image_infos (packet, &timestamp,
+                                                                 &pixel_format,
+                                                                 &width, &height, &x_offset, &y_offset,
+                                                                 &x_padding, &y_padding)) {
+                                        g_string_append_printf (string, "pixel format = %s\n",
+                                                                arv_pixel_format_to_gst_caps_string (pixel_format));
+                                        g_string_append_printf (string, "width        = %8d\n", width);
+                                        g_string_append_printf (string, "height       = %8d\n", height);
+                                        g_string_append_printf (string, "x_offset     = %8d\n", x_offset);
+                                        g_string_append_printf (string, "y_offset     = %8d\n", y_offset);
+                                        g_string_append_printf (string, "x_padding    = %8d\n", x_padding);
+                                        g_string_append_printf (string, "y_padding    = %8d\n", y_padding);
+                                }
+                        } else if (payload_type == ARV_GVSP_PAYLOAD_TYPE_MULTIPART) {
+                                g_string_append_printf (string, "n_parts      = %8u\n",
+                                                        arv_gvsp_packet_get_multipart_n_parts (packet));
+                        }
+                        break;
+                case ARV_GVSP_CONTENT_TYPE_TRAILER:
+                        break;
+                case ARV_GVSP_CONTENT_TYPE_PAYLOAD:
+                        break;
+                case ARV_GVSP_CONTENT_TYPE_H264:
+                        break;
+                case ARV_GVSP_CONTENT_TYPE_MULTIZONE:
+                        break;
+                case ARV_GVSP_CONTENT_TYPE_MULTIPART:
+                        break;
+                case ARV_GVSP_CONTENT_TYPE_GENDC:
+                        break;
+                case ARV_GVSP_CONTENT_TYPE_ALL_IN:
+                        break;
+        }
 
 	c_string = string->str;
 

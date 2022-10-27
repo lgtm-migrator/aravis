@@ -69,7 +69,6 @@ typedef enum {
  * @ARV_BUFFER_PAYLOAD_TYPE_JPEG2000: JPEG2000 data
  * @ARV_BUFFER_PAYLOAD_TYPE_H264: h264 data
  * @ARV_BUFFER_PAYLOAD_TYPE_MULTIZONE_IMAGE: multizone image
- * @ARV_BUFFER_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK: image and chunk data
 */
 
 typedef enum {
@@ -84,7 +83,7 @@ typedef enum {
 	ARV_BUFFER_PAYLOAD_TYPE_H264 = 			0x0008,
 	ARV_BUFFER_PAYLOAD_TYPE_MULTIZONE_IMAGE = 	0x0009,
 	ARV_BUFFER_PAYLOAD_TYPE_MULTIPART =      	0x000a,
-	ARV_BUFFER_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK = 	0x4001
+        ARV_BUFFER_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK =  0x4001
 } ArvBufferPayloadType;
 
 #define ARV_TYPE_BUFFER             (arv_buffer_get_type ())
@@ -108,7 +107,11 @@ ARV_API void			arv_buffer_set_frame_id		(ArvBuffer *buffer, guint64 frame_id);
 ARV_API guint64 		arv_buffer_get_frame_id		(ArvBuffer *buffer);
 ARV_API const void *		arv_buffer_get_data		(ArvBuffer *buffer, size_t *size);
 
-ARV_API void			arv_buffer_get_image_region		(ArvBuffer *buffer, gint *x, gint *y, gint *width, gint *height);
+ARV_API void			arv_buffer_get_image_region		(ArvBuffer *buffer,
+                                                                         gint *x, gint *y,
+                                                                         gint *width, gint *height);
+ARV_API void			arv_buffer_get_image_padding		(ArvBuffer *buffer,
+                                                                         gint *x_padding, gint *y_padding);
 ARV_API gint			arv_buffer_get_image_width		(ArvBuffer *buffer);
 ARV_API gint			arv_buffer_get_image_height		(ArvBuffer *buffer);
 ARV_API gint			arv_buffer_get_image_x			(ArvBuffer *buffer);

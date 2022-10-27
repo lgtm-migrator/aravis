@@ -269,23 +269,28 @@ _process_data_leader (ArvGvStreamThreadData *thread_data,
 	frame->buffer->priv->chunk_endianness = G_BIG_ENDIAN;
 
 	frame->buffer->priv->system_timestamp_ns = g_get_real_time() * 1000LL;
-	if (frame->buffer->priv->payload_type != ARV_BUFFER_PAYLOAD_TYPE_H264) {
-		if (G_LIKELY (thread_data->timestamp_tick_frequency != 0))
-			frame->buffer->priv->timestamp_ns = arv_gvsp_packet_get_timestamp (packet,
-											   thread_data->timestamp_tick_frequency);
-		else {
-			frame->buffer->priv->timestamp_ns = frame->buffer->priv->system_timestamp_ns;
-		}
-	} else
-		frame->buffer->priv->timestamp_ns = frame->buffer->priv->system_timestamp_ns;
 
-	if (arv_buffer_payload_type_has_aoi (frame->buffer->priv->payload_type)) {
-		frame->buffer->priv->x_offset = arv_gvsp_packet_get_x_offset (packet);
-		frame->buffer->priv->y_offset = arv_gvsp_packet_get_y_offset (packet);
-		frame->buffer->priv->width = arv_gvsp_packet_get_width (packet);
-		frame->buffer->priv->height = arv_gvsp_packet_get_height (packet);
-		frame->buffer->priv->pixel_format = arv_gvsp_packet_get_pixel_format (packet);
-	}
+        if (frame->buffer->priv->payload_type == ARV_BUFFER_PAYLOAD_TYPE_IMAGE) {
+                guint64 timestamp;
+
+                arv_gvsp_packet_get_image_infos (packet,
+                                                 &timestamp,
+                                                 &frame->buffer->priv->pixel_format,
+                                                 &frame->buffer->priv->width,
+                                                 &frame->buffer->priv->height,
+                                                 &frame->buffer->priv->x_offset,
+                                                 &frame->buffer->priv->y_offset,
+                                                 &frame->buffer->priv->x_padding,
+                                                 &frame->buffer->priv->y_padding);
+
+		if (G_LIKELY (thread_data->timestamp_tick_frequency != 0))
+			frame->buffer->priv->timestamp_ns =
+                                arv_gvsp_timestamp_to_ns (timestamp, thread_data->timestamp_tick_frequency);
+		else
+			frame->buffer->priv->timestamp_ns = frame->buffer->priv->system_timestamp_ns;
+        } else {
+		frame->buffer->priv->timestamp_ns = frame->buffer->priv->system_timestamp_ns;
+        }
 
 	if (frame->packet_data[packet_id].resend_requested) {
 		thread_data->n_resent_packets++;
@@ -767,16 +772,16 @@ _process_packet (ArvGvStreamThreadData *thread_data, const ArvGvspPacket *packet
 			content_type = arv_gvsp_packet_get_content_type (packet);
 
 			arv_gvsp_packet_debug (packet, packet_size,
-					       content_type == ARV_GVSP_CONTENT_TYPE_DATA_BLOCK ?
+					       content_type == ARV_GVSP_CONTENT_TYPE_PAYLOAD ?
 					       ARV_DEBUG_LEVEL_TRACE :
 					       ARV_DEBUG_LEVEL_DEBUG);
 
 			switch (content_type) {
-				case ARV_GVSP_CONTENT_TYPE_DATA_LEADER:
+				case ARV_GVSP_CONTENT_TYPE_LEADER:
 					_process_data_leader (thread_data, frame, packet, packet_id);
                                         thread_data->n_transferred_bytes += packet_size;
 					break;
-				case ARV_GVSP_CONTENT_TYPE_DATA_BLOCK:
+				case ARV_GVSP_CONTENT_TYPE_PAYLOAD:
 					_process_data_block (thread_data, frame, packet, packet_id,
 							     packet_size);
                                         thread_data->n_transferred_bytes += packet_size;
@@ -786,7 +791,7 @@ _process_packet (ArvGvStreamThreadData *thread_data, const ArvGvspPacket *packet
 					thread_data->n_ignored_packets++;
                                         thread_data->n_ignored_bytes += packet_size;
 					break;
-				case ARV_GVSP_CONTENT_TYPE_DATA_TRAILER:
+				case ARV_GVSP_CONTENT_TYPE_TRAILER:
 					_process_data_trailer (thread_data, frame, packet_id);
                                         thread_data->n_transferred_bytes += packet_size;
 					break;

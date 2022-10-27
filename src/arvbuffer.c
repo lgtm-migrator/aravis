@@ -445,6 +445,29 @@ arv_buffer_get_image_region (ArvBuffer *buffer, gint *x, gint *y, gint *width, g
 }
 
 /**
+ * arv_buffer_get_image_padding:
+ * @buffer: a #ArvBuffer
+ * @x_padding: (out) (optional): image x offset placeholder
+ * @y_padding: (out) (optional): image y offset placeholder
+ *
+ * Gets the image padding. This function must only be called on buffer containing a @ARV_BUFFER_PAYLOAD_TYPE_IMAGE payload.
+ *
+ * Since: 0.8.23
+ */
+
+void
+arv_buffer_get_image_padding (ArvBuffer *buffer, gint *x_padding, gint *y_padding)
+{
+	g_return_if_fail (ARV_IS_BUFFER (buffer));
+	g_return_if_fail (arv_buffer_payload_type_has_aoi (buffer->priv->payload_type));
+
+	if (x_padding != NULL)
+		*x_padding = buffer->priv->x_padding;
+	if (y_padding != NULL)
+		*y_padding = buffer->priv->y_padding;
+}
+
+/**
  * arv_buffer_get_image_width:
  * @buffer: a #ArvBuffer
  *

@@ -163,8 +163,12 @@ void arv_uv_stream_leader_cb (struct libusb_transfer *transfer)
                                 if (ctx->buffer->priv->payload_type == ARV_BUFFER_PAYLOAD_TYPE_IMAGE ||
                                     ctx->buffer->priv->payload_type == ARV_BUFFER_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA) {
                                         arv_uvsp_packet_get_region (packet,
-                                                                    &ctx->buffer->priv->width, &ctx->buffer->priv->height,
-                                                                    &ctx->buffer->priv->x_offset, &ctx->buffer->priv->y_offset);
+                                                                    &ctx->buffer->priv->width,
+                                                                    &ctx->buffer->priv->height,
+                                                                    &ctx->buffer->priv->x_offset,
+                                                                    &ctx->buffer->priv->y_offset,
+                                                                    &ctx->buffer->priv->x_padding,
+                                                                    &ctx->buffer->priv->y_padding);
                                         ctx->buffer->priv->pixel_format = arv_uvsp_packet_get_pixel_format (packet);
                                 }
                                 ctx->buffer->priv->frame_id = arv_uvsp_packet_get_frame_id (packet);
@@ -569,7 +573,9 @@ arv_uv_stream_thread_sync (void *data)
 										    &buffer->priv->width,
 										    &buffer->priv->height,
 										    &buffer->priv->x_offset,
-										    &buffer->priv->y_offset);
+										    &buffer->priv->y_offset,
+                                                                                    &buffer->priv->x_padding,
+                                                                                    &buffer->priv->y_padding);
 							buffer->priv->pixel_format = arv_uvsp_packet_get_pixel_format (packet);
 						}
 						buffer->priv->frame_id = arv_uvsp_packet_get_frame_id (packet);

@@ -47,12 +47,14 @@ typedef struct {
 	guint64 timestamp_ns;
 	guint64 system_timestamp_ns;
 
-	guint32 x_offset;
-	guint32 y_offset;
+	ArvPixelFormat pixel_format;
+
 	guint32 width;
 	guint32 height;
-
-	ArvPixelFormat pixel_format;
+	guint32 x_offset;
+	guint32 y_offset;
+	guint32 x_padding;
+	guint32 y_padding;
 } ArvBufferPrivate;
 
 struct _ArvBuffer {

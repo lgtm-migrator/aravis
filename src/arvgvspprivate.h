@@ -210,6 +210,13 @@ typedef struct {
         ArvGvspPartInfos parts[];
 } ArvGvspMultipartLeader;
 
+typedef struct {
+        guint8 part_id;
+        guint8 zone_info;
+        guint16 offset_high;
+        guint32 offset_low;
+} ArvGvspMultipart;
+
 /**
  * ArvGvspTrailer:
  * @payload_type: ID of the payload type
@@ -382,7 +389,7 @@ arv_gvsp_packet_get_data (const ArvGvspPacket *packet)
 }
 
 static inline ArvGvspPayloadType
-arv_gvsp_packet_get_payload_type (const ArvGvspPacket *packet)
+arv_gvsp_leader_packet_get_payload_type (const ArvGvspPacket *packet)
 {
         if (arv_gvsp_packet_get_content_type (packet) == ARV_GVSP_CONTENT_TYPE_LEADER) {
                 ArvGvspLeader *leader;
@@ -396,11 +403,11 @@ arv_gvsp_packet_get_payload_type (const ArvGvspPacket *packet)
 }
 
 static inline ArvBufferPayloadType
-arv_gvsp_packet_get_buffer_payload_type (const ArvGvspPacket *packet)
+arv_gvsp_leader_packet_get_buffer_payload_type (const ArvGvspPacket *packet)
 {
 	ArvGvspPayloadType gvsp_payload_type;
 
-	gvsp_payload_type = arv_gvsp_packet_get_payload_type (packet);
+	gvsp_payload_type = arv_gvsp_leader_packet_get_payload_type (packet);
 
 	switch (gvsp_payload_type) {
 		case ARV_GVSP_PAYLOAD_TYPE_UNKNOWN:
@@ -433,12 +440,12 @@ arv_gvsp_packet_get_buffer_payload_type (const ArvGvspPacket *packet)
 }
 
 static inline guint8
-arv_gvsp_packet_get_multipart_n_parts (const ArvGvspPacket *packet)
+arv_gvsp_leader_packet_get_multipart_n_parts (const ArvGvspPacket *packet)
 {
         if (arv_gvsp_packet_get_content_type (packet) != ARV_GVSP_CONTENT_TYPE_LEADER)
                 return 0;
 
-        if (arv_gvsp_packet_get_payload_type (packet) == ARV_GVSP_PAYLOAD_TYPE_MULTIPART) {
+        if (arv_gvsp_leader_packet_get_payload_type (packet) == ARV_GVSP_PAYLOAD_TYPE_MULTIPART) {
                 if (arv_gvsp_packet_has_extended_ids (packet)) {
                         ArvGvspExtendedHeader *header = (void *) &packet->header;
                         return (g_ntohl (header->packet_infos) & ARV_GVSP_PACKET_INFOS_N_PARTS_MASK);
@@ -452,19 +459,55 @@ arv_gvsp_packet_get_multipart_n_parts (const ArvGvspPacket *packet)
 }
 
 static inline gboolean
-arv_gvsp_packet_get_image_infos (const ArvGvspPacket *packet,
-                                 guint64 *timestamp,
-                                 ArvPixelFormat *pixel_format,
-                                 guint32 *width, guint32 *height,
-                                 guint32 *x_offset, guint32 *y_offset,
-                                 guint32 *x_padding, guint32 *y_padding)
+arv_gvsp_leader_packet_get_multipart_infos (const ArvGvspPacket *packet,
+                                            unsigned int part_id,
+                                            guint64 *size,
+                                            guint32 *width,
+                                            guint32 *height,
+                                            guint32 *x_offset,
+                                            guint32 *y_offset,
+                                            guint32 *x_padding,
+                                            guint32 *y_padding)
+{
+        unsigned int n_parts;
+        ArvGvspMultipartLeader *leader;
+        ArvGvspPartInfos *infos;
+
+        n_parts = arv_gvsp_leader_packet_get_multipart_n_parts (packet);
+        if (part_id >= n_parts)
+                return FALSE;
+
+        if (arv_gvsp_packet_get_content_type (packet) != ARV_GVSP_CONTENT_TYPE_LEADER)
+                return FALSE;
+
+        leader = arv_gvsp_packet_get_data (packet);
+        infos = &leader->parts[part_id];
+
+        *size = g_ntohl (infos->part_length_low) + (((guint64) g_ntohs (infos->part_length_high)) << 32);
+        *width = g_ntohl (infos->width);
+        *height = g_ntohl (infos->height);
+        *x_offset = g_ntohl (infos->x_offset);
+        *y_offset = g_ntohl (infos->y_offset);
+        *x_padding = g_ntohs(infos->x_padding);
+        *y_padding = g_ntohs (infos->y_padding);
+
+        return TRUE;
+}
+
+static inline gboolean
+arv_gvsp_leader_packet_get_image_infos (const ArvGvspPacket *packet,
+                                        guint64 *timestamp,
+                                        ArvPixelFormat *pixel_format,
+                                        guint32 *width, guint32 *height,
+                                        guint32 *x_offset, guint32 *y_offset,
+                                        guint32 *x_padding, guint32 *y_padding)
 {
         ArvGvspPayloadType payload_type;
 
         if (arv_gvsp_packet_get_content_type (packet) != ARV_GVSP_CONTENT_TYPE_LEADER)
                 return FALSE;
 
-        payload_type = arv_gvsp_packet_get_payload_type (packet);
+        payload_type = arv_gvsp_leader_packet_get_payload_type (packet);
 
         if (payload_type == ARV_GVSP_PAYLOAD_TYPE_IMAGE ||
             payload_type == ARV_GVSP_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA ||
@@ -479,13 +522,74 @@ arv_gvsp_packet_get_image_infos (const ArvGvspPacket *packet,
                 *height = g_ntohl (leader->height);
                 *x_offset = g_ntohl (leader->x_offset);
                 *y_offset = g_ntohl (leader->y_offset);
-                *x_padding = g_ntohl (leader->x_padding);
-                *y_padding = g_ntohl (leader->y_padding);
+                *x_padding = g_ntohs (leader->x_padding);
+                *y_padding = g_ntohs (leader->y_padding);
 
                 return TRUE;
         }
 
         return FALSE;
+}
+
+static inline size_t
+arv_gvsp_payload_packet_get_data_size (const ArvGvspPacket *packet, size_t packet_size)
+{
+        if (arv_gvsp_packet_get_content_type (packet) == ARV_GVSP_CONTENT_TYPE_PAYLOAD) {
+                if (arv_gvsp_packet_has_extended_ids (packet))
+                        return packet_size - sizeof (ArvGvspPacket) - sizeof (ArvGvspExtendedHeader);
+                else
+                        return packet_size - sizeof (ArvGvspPacket) - sizeof (ArvGvspHeader);
+        }
+
+        return 0;
+}
+
+static inline gboolean
+arv_gvsp_multipart_packet_get_infos (const ArvGvspPacket *packet, guint *part_id, ptrdiff_t *offset)
+{
+        ArvGvspMultipart *multipart;
+
+        if (arv_gvsp_packet_get_content_type (packet) != ARV_GVSP_CONTENT_TYPE_MULTIPART) {
+                *part_id = 0;
+                *offset = 0;
+                return FALSE;
+        }
+
+        multipart = arv_gvsp_packet_get_data(packet);
+
+        *part_id = multipart->part_id;
+        *offset = ( (guint64) g_ntohs(multipart->offset_high) << 32) + g_ntohl(multipart->offset_low);
+
+        return TRUE;
+}
+
+static inline size_t
+arv_gvsp_multipart_packet_get_data_size (const ArvGvspPacket *packet, size_t packet_size)
+{
+        if (arv_gvsp_packet_get_content_type (packet) == ARV_GVSP_CONTENT_TYPE_MULTIPART) {
+                if (arv_gvsp_packet_has_extended_ids (packet))
+                        return packet_size -
+                                sizeof (ArvGvspPacket) -
+                                sizeof (ArvGvspExtendedHeader) -
+                                sizeof (ArvGvspMultipart);
+                else
+                        return packet_size -
+                                sizeof (ArvGvspPacket) -
+                                sizeof (ArvGvspHeader) -
+                                sizeof (ArvGvspMultipart);
+        }
+
+        return 0;
+}
+
+static inline void *
+arv_gvsp_multipart_packet_get_data (const ArvGvspPacket *packet)
+{
+        if (arv_gvsp_packet_get_content_type (packet) == ARV_GVSP_CONTENT_TYPE_MULTIPART) {
+                return (char *) packet + sizeof (ArvGvspPacket) + sizeof (ArvGvspHeader) + sizeof (ArvGvspMultipart);
+        }
+
+        return NULL;
 }
 
 static inline guint64

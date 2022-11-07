@@ -81,6 +81,8 @@ arv_buffer_new_full (size_t size, void *preallocated, void *user_data, GDestroyN
 	buffer->priv->user_data_destroy_func = user_data_destroy_func;
 	buffer->priv->chunk_endianness = G_BIG_ENDIAN;
 	buffer->priv->payload_type = ARV_BUFFER_PAYLOAD_TYPE_UNKNOWN;
+        buffer->priv->parts = g_new0 (ArvBufferPartInfos, 1);
+        buffer->priv->n_parts = 0;
 
 	if (preallocated != NULL) {
 		buffer->priv->is_preallocated = TRUE;
@@ -433,15 +435,16 @@ arv_buffer_get_image_region (ArvBuffer *buffer, gint *x, gint *y, gint *width, g
 {
 	g_return_if_fail (ARV_IS_BUFFER (buffer));
 	g_return_if_fail (arv_buffer_payload_type_has_aoi (buffer->priv->payload_type));
+        g_return_if_fail (buffer->priv->n_parts > 0);
 
 	if (x != NULL)
-		*x = buffer->priv->x_offset;
+		*x = buffer->priv->parts[0].x_offset;
 	if (y != NULL)
-		*y = buffer->priv->y_offset;
+		*y = buffer->priv->parts[0].y_offset;
 	if (width != NULL)
-		*width = buffer->priv->width;
+		*width = buffer->priv->parts[0].width;
 	if (height != NULL)
-		*height = buffer->priv->height;
+		*height = buffer->priv->parts[0].height;
 }
 
 /**
@@ -460,11 +463,12 @@ arv_buffer_get_image_padding (ArvBuffer *buffer, gint *x_padding, gint *y_paddin
 {
 	g_return_if_fail (ARV_IS_BUFFER (buffer));
 	g_return_if_fail (arv_buffer_payload_type_has_aoi (buffer->priv->payload_type));
+        g_return_if_fail (buffer->priv->n_parts > 0);
 
 	if (x_padding != NULL)
-		*x_padding = buffer->priv->x_padding;
+		*x_padding = buffer->priv->parts[0].x_padding;
 	if (y_padding != NULL)
-		*y_padding = buffer->priv->y_padding;
+		*y_padding = buffer->priv->parts[0].y_padding;
 }
 
 /**
@@ -483,8 +487,9 @@ arv_buffer_get_image_width (ArvBuffer *buffer)
 {
 	g_return_val_if_fail (ARV_IS_BUFFER (buffer), 0);
 	g_return_val_if_fail (arv_buffer_payload_type_has_aoi (buffer->priv->payload_type), 0);
+        g_return_val_if_fail (buffer->priv->n_parts > 0, 0);
 
-	return buffer->priv->width;
+	return buffer->priv->parts[0].width;
 }
 
 /**
@@ -503,8 +508,9 @@ arv_buffer_get_image_height (ArvBuffer *buffer)
 {
 	g_return_val_if_fail (ARV_IS_BUFFER (buffer), 0);
 	g_return_val_if_fail (arv_buffer_payload_type_has_aoi (buffer->priv->payload_type), 0);
+        g_return_val_if_fail (buffer->priv->n_parts > 0, 0);
 
-	return buffer->priv->height;
+	return buffer->priv->parts[0].height;
 }
 
 /**
@@ -523,8 +529,9 @@ arv_buffer_get_image_x (ArvBuffer *buffer)
 {
 	g_return_val_if_fail (ARV_IS_BUFFER (buffer), 0);
 	g_return_val_if_fail (arv_buffer_payload_type_has_aoi (buffer->priv->payload_type), 0);
+        g_return_val_if_fail (buffer->priv->n_parts > 0, 0);
 
-	return buffer->priv->x_offset;
+	return buffer->priv->parts[0].x_offset;
 }
 
 /**
@@ -543,8 +550,9 @@ arv_buffer_get_image_y (ArvBuffer *buffer)
 {
 	g_return_val_if_fail (ARV_IS_BUFFER (buffer), 0);
 	g_return_val_if_fail (arv_buffer_payload_type_has_aoi (buffer->priv->payload_type), 0);
+        g_return_val_if_fail (buffer->priv->n_parts > 0, 0);
 
-	return buffer->priv->y_offset;
+	return buffer->priv->parts[0].y_offset;
 }
 
 /**
@@ -563,8 +571,28 @@ arv_buffer_get_image_pixel_format (ArvBuffer *buffer)
 {
 	g_return_val_if_fail (ARV_IS_BUFFER (buffer), 0);
 	g_return_val_if_fail (arv_buffer_payload_type_has_aoi (buffer->priv->payload_type), 0);
+        g_return_val_if_fail (buffer->priv->n_parts > 0, 0);
 
-	return buffer->priv->pixel_format;
+	return buffer->priv->parts[0].pixel_format;
+}
+
+void
+arv_buffer_set_n_parts (ArvBuffer* buffer, guint n_parts)
+{
+        g_return_if_fail (ARV_IS_BUFFER(buffer));
+
+        if (G_UNLIKELY (n_parts == 0)) {
+                buffer->priv->n_parts = 0;
+                g_clear_pointer (&buffer->priv->parts, g_free);
+
+                return;
+        }
+
+        if (buffer->priv->n_parts != n_parts)
+                buffer->priv->parts = g_realloc_n (buffer->priv->parts, n_parts, sizeof (ArvBufferPartInfos));
+
+        memset (buffer->priv->parts, 0, n_parts * sizeof (ArvBufferPartInfos));
+        buffer->priv->n_parts = n_parts;
 }
 
 G_DEFINE_TYPE_WITH_CODE (ArvBuffer, arv_buffer, G_TYPE_OBJECT, G_ADD_PRIVATE (ArvBuffer))
@@ -580,6 +608,9 @@ static void
 arv_buffer_finalize (GObject *object)
 {
 	ArvBuffer *buffer = ARV_BUFFER (object);
+
+        buffer->priv->n_parts = 0;
+        g_clear_pointer (&buffer->priv->parts, g_free);
 
 	if (!buffer->priv->is_preallocated) {
 		g_free (buffer->priv->data);

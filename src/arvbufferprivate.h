@@ -29,23 +29,7 @@
 G_BEGIN_DECLS
 
 typedef struct {
-	size_t allocated_size;
-	gboolean is_preallocated;
-	unsigned char *data;
-
-	void *user_data;
-	GDestroyNotify user_data_destroy_func;
-
-	ArvBufferStatus status;
-	size_t received_size;
-
-	ArvBufferPayloadType payload_type;
-
-	guint32 chunk_endianness;
-
-	guint64 frame_id;
-	guint64 timestamp_ns;
-	guint64 system_timestamp_ns;
+        size_t size;
 
 	ArvPixelFormat pixel_format;
 
@@ -55,6 +39,29 @@ typedef struct {
 	guint32 y_offset;
 	guint32 x_padding;
 	guint32 y_padding;
+} ArvBufferPartInfos;
+
+typedef struct {
+	size_t allocated_size;
+	gboolean is_preallocated;
+	unsigned char *data;
+
+	void *user_data;
+	GDestroyNotify user_data_destroy_func;
+
+	ArvBufferStatus status;
+        size_t received_size;
+
+	ArvBufferPayloadType payload_type;
+
+	guint32 chunk_endianness;
+
+	guint64 frame_id;
+	guint64 timestamp_ns;
+	guint64 system_timestamp_ns;
+
+        guint n_parts;
+        ArvBufferPartInfos *parts;
 } ArvBufferPrivate;
 
 struct _ArvBuffer {
@@ -66,6 +73,8 @@ struct _ArvBuffer {
 struct _ArvBufferClass {
 	GObjectClass parent_class;
 };
+
+void            arv_buffer_set_n_parts                  (ArvBuffer* buffer, guint n_parts);
 
 gboolean	arv_buffer_payload_type_has_chunks 	(ArvBufferPayloadType payload_type);
 gboolean	arv_buffer_payload_type_has_aoi 	(ArvBufferPayloadType payload_type);

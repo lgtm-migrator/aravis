@@ -351,10 +351,12 @@ _thread (void *user_data)
 				packet_size = ARV_GV_FAKE_CAMERA_BUFFER_SIZE;
                                 arv_gvsp_packet_new_image_leader (image_buffer->priv->frame_id,
                                                                   block_id,
-                                                                  image_buffer->priv->timestamp_ns,
-                                                                  image_buffer->priv->pixel_format,
-                                                                  image_buffer->priv->width, image_buffer->priv->height,
-                                                                  image_buffer->priv->x_offset, image_buffer->priv->y_offset,
+                                                                  arv_buffer_get_timestamp(image_buffer),
+                                                                  arv_buffer_get_image_pixel_format(image_buffer),
+                                                                  arv_buffer_get_image_width(image_buffer),
+                                                                  arv_buffer_get_image_height(image_buffer),
+                                                                  arv_buffer_get_image_x(image_buffer),
+                                                                  arv_buffer_get_image_y(image_buffer),
                                                                   0, 0,
                                                                   packet_buffer, &packet_size);
 

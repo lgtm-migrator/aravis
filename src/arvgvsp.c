@@ -30,6 +30,7 @@
 #include <arvenumtypes.h>
 #include <arvgvspprivate.h>
 #include <arvenumtypesprivate.h>
+#include <stddef.h>
 #include <string.h>
 
 static ArvGvspPacket *
@@ -169,6 +170,8 @@ arv_gvsp_packet_to_string (const ArvGvspPacket *packet, size_t packet_size)
 	ArvGvspPacketType packet_type;
         ArvGvspPayloadType payload_type;
 	ArvGvspContentType content_type;
+        guint part_id;
+        ptrdiff_t offset;
 	GString *string;
 	char *c_string;
 
@@ -191,7 +194,7 @@ arv_gvsp_packet_to_string (const ArvGvspPacket *packet, size_t packet_size)
 
 	switch (content_type) {
 		case ARV_GVSP_CONTENT_TYPE_LEADER:
-                        payload_type = arv_gvsp_packet_get_payload_type (packet);
+                        payload_type = arv_gvsp_leader_packet_get_payload_type (packet);
 			switch (payload_type) {
 				case ARV_GVSP_PAYLOAD_TYPE_IMAGE:
 					g_string_append (string, "payload_type = image\n");
@@ -238,7 +241,7 @@ arv_gvsp_packet_to_string (const ArvGvspPacket *packet, size_t packet_size)
                                 ArvPixelFormat pixel_format;
                                 guint32 width, height, x_offset, y_offset, x_padding, y_padding;
 
-                                if (arv_gvsp_packet_get_image_infos (packet, &timestamp,
+                                if (arv_gvsp_leader_packet_get_image_infos (packet, &timestamp,
                                                                  &pixel_format,
                                                                  &width, &height, &x_offset, &y_offset,
                                                                  &x_padding, &y_padding)) {
@@ -253,7 +256,7 @@ arv_gvsp_packet_to_string (const ArvGvspPacket *packet, size_t packet_size)
                                 }
                         } else if (payload_type == ARV_GVSP_PAYLOAD_TYPE_MULTIPART) {
                                 g_string_append_printf (string, "n_parts      = %8u\n",
-                                                        arv_gvsp_packet_get_multipart_n_parts (packet));
+                                                        arv_gvsp_leader_packet_get_multipart_n_parts (packet));
                         }
                         break;
                 case ARV_GVSP_CONTENT_TYPE_TRAILER:
@@ -265,6 +268,10 @@ arv_gvsp_packet_to_string (const ArvGvspPacket *packet, size_t packet_size)
                 case ARV_GVSP_CONTENT_TYPE_MULTIZONE:
                         break;
                 case ARV_GVSP_CONTENT_TYPE_MULTIPART:
+                        if (arv_gvsp_multipart_packet_get_infos (packet, &part_id, &offset)) {
+                                g_string_append_printf (string, "part_id      = %8d\n", part_id);
+                                g_string_append_printf (string, "offset       = %8zu\n", offset);
+                        }
                         break;
                 case ARV_GVSP_CONTENT_TYPE_GENDC:
                         break;

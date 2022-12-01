@@ -158,7 +158,8 @@ void arv_uv_stream_leader_cb (struct libusb_transfer *transfer)
                                 }
 
                                 ctx->buffer->priv->system_timestamp_ns = g_get_real_time () * 1000LL;
-                                ctx->buffer->priv->payload_type = arv_uvsp_packet_get_buffer_payload_type (packet);
+                                ctx->buffer->priv->payload_type = arv_uvsp_packet_get_buffer_payload_type
+                                        (packet, &ctx->buffer->priv->has_chunks);
                                 ctx->buffer->priv->chunk_endianness = G_LITTLE_ENDIAN;
                                 if (ctx->buffer->priv->payload_type == ARV_BUFFER_PAYLOAD_TYPE_IMAGE ||
                                     ctx->buffer->priv->payload_type == ARV_BUFFER_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA) {
@@ -566,7 +567,8 @@ arv_uv_stream_thread_sync (void *data)
 						buffer->priv->system_timestamp_ns = g_get_real_time () * 1000LL;
 						buffer->priv->status = ARV_BUFFER_STATUS_FILLING;
                                                 buffer->priv->received_size = 0;
-						buffer->priv->payload_type = arv_uvsp_packet_get_buffer_payload_type (packet);
+						buffer->priv->payload_type = arv_uvsp_packet_get_buffer_payload_type
+                                                        (packet, &buffer->priv->has_chunks);
 						buffer->priv->chunk_endianness = G_LITTLE_ENDIAN;
 						if (buffer->priv->payload_type == ARV_BUFFER_PAYLOAD_TYPE_IMAGE ||
 						    buffer->priv->payload_type == ARV_BUFFER_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA) {

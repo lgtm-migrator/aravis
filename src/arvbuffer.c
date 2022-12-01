@@ -33,21 +33,13 @@
 
 #include <arvbufferprivate.h>
 
-gboolean
-arv_buffer_payload_type_has_chunks (ArvBufferPayloadType payload_type)
+static gboolean
+arv_buffer_is_image (const ArvBuffer *buffer)
 {
-	return (payload_type == ARV_BUFFER_PAYLOAD_TYPE_CHUNK_DATA ||
-		payload_type == ARV_BUFFER_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA ||
-		payload_type == ARV_BUFFER_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK);
-}
-
-gboolean
-arv_buffer_payload_type_has_aoi (ArvBufferPayloadType payload_type)
-{
-
-	return (payload_type == ARV_BUFFER_PAYLOAD_TYPE_IMAGE ||
-		payload_type == ARV_BUFFER_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA ||
-		payload_type == ARV_BUFFER_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK);
+	return (buffer->priv->status == ARV_BUFFER_STATUS_SUCCESS &&
+                buffer->priv->n_parts == 1 &&
+                (buffer->priv->payload_type == ARV_BUFFER_PAYLOAD_TYPE_IMAGE ||
+                 buffer->priv->payload_type == ARV_BUFFER_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA));
 }
 
 /**
@@ -82,7 +74,7 @@ arv_buffer_new_full (size_t size, void *preallocated, void *user_data, GDestroyN
 	buffer->priv->chunk_endianness = G_BIG_ENDIAN;
 	buffer->priv->payload_type = ARV_BUFFER_PAYLOAD_TYPE_UNKNOWN;
         buffer->priv->parts = g_new0 (ArvBufferPartInfos, 1);
-        buffer->priv->n_parts = 0;
+        buffer->priv->n_parts = 1;
 
 	if (preallocated != NULL) {
 		buffer->priv->is_preallocated = TRUE;
@@ -177,7 +169,7 @@ arv_buffer_has_chunks (ArvBuffer *buffer)
 {
 	return ARV_IS_BUFFER (buffer) &&
 		buffer->priv->status == ARV_BUFFER_STATUS_SUCCESS &&
-		arv_buffer_payload_type_has_chunks (buffer->priv->payload_type);
+                buffer->priv->has_chunks;
 }
 
 /**
@@ -207,7 +199,7 @@ arv_buffer_get_chunk_data (ArvBuffer *buffer, guint64 chunk_id, size_t *size)
 	g_return_val_if_fail (buffer->priv->data != NULL, NULL);
 
 	data = buffer->priv->data;
-	offset = buffer->priv->allocated_size - sizeof (ArvChunkInfos);
+	offset = buffer->priv->received_size - sizeof (ArvChunkInfos);
 	while (offset > 0) {
 		guint32 id;
 		guint32 chunk_size;
@@ -434,8 +426,7 @@ void
 arv_buffer_get_image_region (ArvBuffer *buffer, gint *x, gint *y, gint *width, gint *height)
 {
 	g_return_if_fail (ARV_IS_BUFFER (buffer));
-	g_return_if_fail (arv_buffer_payload_type_has_aoi (buffer->priv->payload_type));
-        g_return_if_fail (buffer->priv->n_parts > 0);
+	g_return_if_fail (arv_buffer_is_image (buffer));
 
 	if (x != NULL)
 		*x = buffer->priv->parts[0].x_offset;
@@ -462,8 +453,7 @@ void
 arv_buffer_get_image_padding (ArvBuffer *buffer, gint *x_padding, gint *y_padding)
 {
 	g_return_if_fail (ARV_IS_BUFFER (buffer));
-	g_return_if_fail (arv_buffer_payload_type_has_aoi (buffer->priv->payload_type));
-        g_return_if_fail (buffer->priv->n_parts > 0);
+	g_return_if_fail (arv_buffer_is_image (buffer));
 
 	if (x_padding != NULL)
 		*x_padding = buffer->priv->parts[0].x_padding;
@@ -486,8 +476,7 @@ gint
 arv_buffer_get_image_width (ArvBuffer *buffer)
 {
 	g_return_val_if_fail (ARV_IS_BUFFER (buffer), 0);
-	g_return_val_if_fail (arv_buffer_payload_type_has_aoi (buffer->priv->payload_type), 0);
-        g_return_val_if_fail (buffer->priv->n_parts > 0, 0);
+	g_return_val_if_fail (arv_buffer_is_image (buffer), 0);
 
 	return buffer->priv->parts[0].width;
 }
@@ -507,8 +496,7 @@ gint
 arv_buffer_get_image_height (ArvBuffer *buffer)
 {
 	g_return_val_if_fail (ARV_IS_BUFFER (buffer), 0);
-	g_return_val_if_fail (arv_buffer_payload_type_has_aoi (buffer->priv->payload_type), 0);
-        g_return_val_if_fail (buffer->priv->n_parts > 0, 0);
+	g_return_val_if_fail (arv_buffer_is_image (buffer), 0);
 
 	return buffer->priv->parts[0].height;
 }
@@ -528,8 +516,7 @@ gint
 arv_buffer_get_image_x (ArvBuffer *buffer)
 {
 	g_return_val_if_fail (ARV_IS_BUFFER (buffer), 0);
-	g_return_val_if_fail (arv_buffer_payload_type_has_aoi (buffer->priv->payload_type), 0);
-        g_return_val_if_fail (buffer->priv->n_parts > 0, 0);
+	g_return_val_if_fail (arv_buffer_is_image (buffer), 0);
 
 	return buffer->priv->parts[0].x_offset;
 }
@@ -549,8 +536,7 @@ gint
 arv_buffer_get_image_y (ArvBuffer *buffer)
 {
 	g_return_val_if_fail (ARV_IS_BUFFER (buffer), 0);
-	g_return_val_if_fail (arv_buffer_payload_type_has_aoi (buffer->priv->payload_type), 0);
-        g_return_val_if_fail (buffer->priv->n_parts > 0, 0);
+	g_return_val_if_fail (arv_buffer_is_image (buffer), 0);
 
 	return buffer->priv->parts[0].y_offset;
 }
@@ -570,8 +556,7 @@ ArvPixelFormat
 arv_buffer_get_image_pixel_format (ArvBuffer *buffer)
 {
 	g_return_val_if_fail (ARV_IS_BUFFER (buffer), 0);
-	g_return_val_if_fail (arv_buffer_payload_type_has_aoi (buffer->priv->payload_type), 0);
-        g_return_val_if_fail (buffer->priv->n_parts > 0, 0);
+	g_return_val_if_fail (arv_buffer_is_image (buffer), 0);
 
 	return buffer->priv->parts[0].pixel_format;
 }

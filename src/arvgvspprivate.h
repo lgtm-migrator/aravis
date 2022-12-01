@@ -71,37 +71,6 @@ typedef enum {
         ARV_GVSP_CONTENT_TYPE_GENDC =           0x08
 } ArvGvspContentType;
 
-/**
- * ArvGvspPayloadType:
- * @ARV_GVSP_PAYLOAD_TYPE_UNKNOWN: unknown payload type
- * @ARV_GVSP_PAYLOAD_TYPE_IMAGE: image data
- * @ARV_GVSP_PAYLOAD_TYPE_RAWDATA: raw data
- * @ARV_GVSP_PAYLOAD_TYPE_FILE: file
- * @ARV_GVSP_PAYLOAD_TYPE_CHUNK_DATA: chunk data
- * @ARV_GVSP_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA: extended chunk data
- * @ARV_GVSP_PAYLOAD_TYPE_JPEG: JPEG data
- * @ARV_GVSP_PAYLOAD_TYPE_JPEG2000: JPEG2000 data
- * @ARV_GVSP_PAYLOAD_TYPE_H264: h264 data
- * @ARV_GVSP_PAYLOAD_TYPE_MULTIZONE_IMAGE: multizone image
- * @ARV_GVSP_PAYLOAD_TYPE_MULTIPART: multipart payload
- * @ARV_GVSP_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK: image + chunk data
-*/
-
-typedef enum {
-	ARV_GVSP_PAYLOAD_TYPE_UNKNOWN =			0x0000,
-	ARV_GVSP_PAYLOAD_TYPE_IMAGE =			0x0001,
-	ARV_GVSP_PAYLOAD_TYPE_RAWDATA = 		0x0002,
-	ARV_GVSP_PAYLOAD_TYPE_FILE = 			0x0003,
-	ARV_GVSP_PAYLOAD_TYPE_CHUNK_DATA = 		0x0004,
-	ARV_GVSP_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA = 	0x0005, /* Deprecated */
-	ARV_GVSP_PAYLOAD_TYPE_JPEG = 			0x0006,
-	ARV_GVSP_PAYLOAD_TYPE_JPEG2000 = 		0x0007,
-	ARV_GVSP_PAYLOAD_TYPE_H264 = 			0x0008,
-	ARV_GVSP_PAYLOAD_TYPE_MULTIZONE_IMAGE = 	0x0009,
-	ARV_GVSP_PAYLOAD_TYPE_MULTIPART =        	0x000a,
-        ARV_GVSP_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK =    0x4001
-} ArvGvspPayloadType;
-
 typedef enum {
         ARV_GVSP_MULTIPART_DATA_TYPE_2DPLANEBIPLANAR =  0x0002,
         ARV_GVSP_MULTIPART_DATA_TYPE_2DPLANETRIPLANAR = 0x0003,
@@ -388,64 +357,29 @@ arv_gvsp_packet_get_data (const ArvGvspPacket *packet)
 	}
 }
 
-static inline ArvGvspPayloadType
-arv_gvsp_leader_packet_get_payload_type (const ArvGvspPacket *packet)
+static inline ArvBufferPayloadType
+arv_gvsp_leader_packet_get_buffer_payload_type (const ArvGvspPacket *packet, gboolean *has_chunks)
 {
-        if (arv_gvsp_packet_get_content_type (packet) == ARV_GVSP_CONTENT_TYPE_LEADER) {
+        if (G_LIKELY (arv_gvsp_packet_get_content_type (packet) == ARV_GVSP_CONTENT_TYPE_LEADER)) {
                 ArvGvspLeader *leader;
+                guint16 payload_type;
 
                 leader = arv_gvsp_packet_get_data (packet);
+                payload_type = g_ntohs (leader->payload_type);
 
-                return (ArvGvspPayloadType) g_ntohs (leader->payload_type);
+                if (has_chunks != NULL)
+                        *has_chunks = (payload_type & 0x4000) != 0;
+
+                return payload_type & 0x3fff;
         }
 
-        return ARV_GVSP_PAYLOAD_TYPE_UNKNOWN;
-}
-
-static inline ArvBufferPayloadType
-arv_gvsp_leader_packet_get_buffer_payload_type (const ArvGvspPacket *packet)
-{
-	ArvGvspPayloadType gvsp_payload_type;
-
-	gvsp_payload_type = arv_gvsp_leader_packet_get_payload_type (packet);
-
-	switch (gvsp_payload_type) {
-		case ARV_GVSP_PAYLOAD_TYPE_UNKNOWN:
-			return ARV_BUFFER_PAYLOAD_TYPE_UNKNOWN;
-		case ARV_GVSP_PAYLOAD_TYPE_IMAGE:
-			return ARV_BUFFER_PAYLOAD_TYPE_IMAGE;
-		case ARV_GVSP_PAYLOAD_TYPE_RAWDATA:
-			return ARV_BUFFER_PAYLOAD_TYPE_RAWDATA;
-		case ARV_GVSP_PAYLOAD_TYPE_FILE:
-			return ARV_BUFFER_PAYLOAD_TYPE_FILE;
-		case ARV_GVSP_PAYLOAD_TYPE_CHUNK_DATA:
-			return ARV_BUFFER_PAYLOAD_TYPE_CHUNK_DATA;
-		case ARV_GVSP_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA:
-			return ARV_BUFFER_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA;
-		case ARV_GVSP_PAYLOAD_TYPE_JPEG:
-			return ARV_BUFFER_PAYLOAD_TYPE_JPEG;
-		case ARV_GVSP_PAYLOAD_TYPE_JPEG2000:
-			return ARV_BUFFER_PAYLOAD_TYPE_JPEG2000;
-		case ARV_GVSP_PAYLOAD_TYPE_H264:
-			return ARV_BUFFER_PAYLOAD_TYPE_H264;
-		case ARV_GVSP_PAYLOAD_TYPE_MULTIZONE_IMAGE:
-			return ARV_BUFFER_PAYLOAD_TYPE_MULTIZONE_IMAGE;
-		case ARV_GVSP_PAYLOAD_TYPE_MULTIPART:
-			return ARV_BUFFER_PAYLOAD_TYPE_MULTIPART;
-		case ARV_GVSP_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK:
-			return ARV_BUFFER_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK;
-	}
-
-	return ARV_BUFFER_PAYLOAD_TYPE_UNKNOWN;
+        return ARV_BUFFER_PAYLOAD_TYPE_UNKNOWN;
 }
 
 static inline guint8
 arv_gvsp_leader_packet_get_multipart_n_parts (const ArvGvspPacket *packet)
 {
-        if (arv_gvsp_packet_get_content_type (packet) != ARV_GVSP_CONTENT_TYPE_LEADER)
-                return 0;
-
-        if (arv_gvsp_leader_packet_get_payload_type (packet) == ARV_GVSP_PAYLOAD_TYPE_MULTIPART) {
+        if (arv_gvsp_leader_packet_get_buffer_payload_type (packet, NULL) == ARV_BUFFER_PAYLOAD_TYPE_MULTIPART) {
                 if (arv_gvsp_packet_has_extended_ids (packet)) {
                         ArvGvspExtendedHeader *header = (void *) &packet->header;
                         return (g_ntohl (header->packet_infos) & ARV_GVSP_PACKET_INFOS_N_PARTS_MASK);
@@ -477,9 +411,6 @@ arv_gvsp_leader_packet_get_multipart_infos (const ArvGvspPacket *packet,
         if (part_id >= n_parts)
                 return FALSE;
 
-        if (arv_gvsp_packet_get_content_type (packet) != ARV_GVSP_CONTENT_TYPE_LEADER)
-                return FALSE;
-
         leader = arv_gvsp_packet_get_data (packet);
         infos = &leader->parts[part_id];
 
@@ -502,16 +433,12 @@ arv_gvsp_leader_packet_get_image_infos (const ArvGvspPacket *packet,
                                         guint32 *x_offset, guint32 *y_offset,
                                         guint32 *x_padding, guint32 *y_padding)
 {
-        ArvGvspPayloadType payload_type;
+        ArvBufferPayloadType payload_type;
 
-        if (arv_gvsp_packet_get_content_type (packet) != ARV_GVSP_CONTENT_TYPE_LEADER)
-                return FALSE;
+        payload_type = arv_gvsp_leader_packet_get_buffer_payload_type (packet, NULL);
 
-        payload_type = arv_gvsp_leader_packet_get_payload_type (packet);
-
-        if (payload_type == ARV_GVSP_PAYLOAD_TYPE_IMAGE ||
-            payload_type == ARV_GVSP_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA ||
-            payload_type == ARV_GVSP_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK) {
+        if (payload_type == ARV_BUFFER_PAYLOAD_TYPE_IMAGE ||
+            payload_type == ARV_BUFFER_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA) {
                 ArvGvspImageLeader *leader;
 
                 leader = arv_gvsp_packet_get_data (packet);

@@ -47,13 +47,6 @@ typedef enum {
 	ARV_UVSP_PACKET_TYPE_DATA
 } ArvUvspPacketType;
 
-typedef enum {
-	ARV_UVSP_PAYLOAD_TYPE_UNKNOWN =			0x0000,
-	ARV_UVSP_PAYLOAD_TYPE_IMAGE =			0x0001,
-	ARV_UVSP_PAYLOAD_TYPE_CHUNK = 			0x4000,
-	ARV_UVSP_PAYLOAD_TYPE_EXTENDED_CHUNK =		0x4001
-} ArvUvspPayloadType;
-
 #pragma pack(push,1)
 
 typedef struct {
@@ -115,30 +108,22 @@ arv_uvsp_packet_get_packet_type	(const ArvUvspPacket *packet)
 }
 
 static inline ArvBufferPayloadType
-arv_uvsp_packet_get_buffer_payload_type (ArvUvspPacket *packet)
+arv_uvsp_packet_get_buffer_payload_type (ArvUvspPacket *packet, gboolean *has_chunks)
 {
 	ArvUvspLeader *leader;
-	ArvUvspPayloadType uvsp_payload_type;
+	guint16 payload_type;
 
 	if (packet == NULL)
 		return ARV_BUFFER_PAYLOAD_TYPE_UNKNOWN;
 
 	leader = (ArvUvspLeader *) packet;
 
-	uvsp_payload_type = (ArvUvspPayloadType) GUINT16_FROM_LE (leader->infos.payload_type);
+	payload_type = GUINT16_FROM_LE (leader->infos.payload_type);
 
-	switch (uvsp_payload_type) {
-		case ARV_UVSP_PAYLOAD_TYPE_IMAGE:
-			return ARV_BUFFER_PAYLOAD_TYPE_IMAGE;
-		case ARV_UVSP_PAYLOAD_TYPE_CHUNK:
-			return ARV_BUFFER_PAYLOAD_TYPE_CHUNK_DATA;
-		case ARV_UVSP_PAYLOAD_TYPE_EXTENDED_CHUNK:
-			return ARV_BUFFER_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA;
-		case ARV_UVSP_PAYLOAD_TYPE_UNKNOWN:
-			return ARV_BUFFER_PAYLOAD_TYPE_UNKNOWN;
-	}
+        if (has_chunks != NULL)
+                *has_chunks = (payload_type & 0x4000) != 0;
 
-	return ARV_BUFFER_PAYLOAD_TYPE_UNKNOWN;
+        return payload_type & 0x3fff;
 }
 
 static inline guint64

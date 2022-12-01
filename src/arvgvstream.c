@@ -269,15 +269,15 @@ _process_data_leader (ArvGvStreamThreadData *thread_data,
 
         frame->leader_received = TRUE;
 
-	frame->buffer->priv->payload_type = arv_gvsp_leader_packet_get_buffer_payload_type (packet);
+	frame->buffer->priv->payload_type = arv_gvsp_leader_packet_get_buffer_payload_type
+                (packet, &frame->buffer->priv->has_chunks);
 	frame->buffer->priv->frame_id = frame->frame_id;
 	frame->buffer->priv->chunk_endianness = G_BIG_ENDIAN;
 
 	frame->buffer->priv->system_timestamp_ns = g_get_real_time() * 1000LL;
 
         if (frame->buffer->priv->payload_type == ARV_BUFFER_PAYLOAD_TYPE_IMAGE ||
-            frame->buffer->priv->payload_type == ARV_BUFFER_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA ||
-            frame->buffer->priv->payload_type == ARV_BUFFER_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK) {
+            frame->buffer->priv->payload_type == ARV_BUFFER_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA) {
                 guint64 timestamp;
 
                 arv_buffer_set_n_parts (frame->buffer, 1);

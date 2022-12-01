@@ -82,7 +82,7 @@ arv_gvsp_packet_new_image_leader (guint16 frame_id, guint32 packet_id,
 
 		leader = arv_gvsp_packet_get_data (packet);
 		leader->flags = 0;
-		leader->payload_type = g_htons (ARV_GVSP_PAYLOAD_TYPE_IMAGE);
+		leader->payload_type = g_htons (ARV_BUFFER_PAYLOAD_TYPE_IMAGE);
 		leader->timestamp_high = g_htonl (((guint64) timestamp >> 32));
 		leader->timestamp_low  = g_htonl ((guint64) timestamp & 0xffffffff);
 		leader->pixel_format = g_htonl (pixel_format);
@@ -110,7 +110,7 @@ arv_gvsp_packet_new_data_trailer (guint16 frame_id, guint32 packet_id,
 		ArvGvspTrailer *trailer;
 
 		trailer = arv_gvsp_packet_get_data (packet);
-		trailer->payload_type = g_htonl (ARV_GVSP_PAYLOAD_TYPE_IMAGE);
+		trailer->payload_type = g_htonl (ARV_BUFFER_PAYLOAD_TYPE_IMAGE);
 		trailer->data0 = 0;
 	}
 
@@ -168,7 +168,7 @@ char *
 arv_gvsp_packet_to_string (const ArvGvspPacket *packet, size_t packet_size)
 {
 	ArvGvspPacketType packet_type;
-        ArvGvspPayloadType payload_type;
+        ArvBufferPayloadType payload_type;
 	ArvGvspContentType content_type;
         guint part_id;
         ptrdiff_t offset;
@@ -194,39 +194,36 @@ arv_gvsp_packet_to_string (const ArvGvspPacket *packet, size_t packet_size)
 
 	switch (content_type) {
 		case ARV_GVSP_CONTENT_TYPE_LEADER:
-                        payload_type = arv_gvsp_leader_packet_get_payload_type (packet);
+                        payload_type = arv_gvsp_leader_packet_get_buffer_payload_type (packet, NULL);
 			switch (payload_type) {
-				case ARV_GVSP_PAYLOAD_TYPE_IMAGE:
+				case ARV_BUFFER_PAYLOAD_TYPE_IMAGE:
 					g_string_append (string, "payload_type = image\n");
 					break;
-				case ARV_GVSP_PAYLOAD_TYPE_CHUNK_DATA:
+				case ARV_BUFFER_PAYLOAD_TYPE_CHUNK_DATA:
 					g_string_append (string, "payload_type = chunk\n");
 					break;
-				case ARV_GVSP_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA:
+				case ARV_BUFFER_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA:
 					g_string_append (string, "payload_type = extended chunk\n");
 					break;
-				case ARV_GVSP_PAYLOAD_TYPE_H264:
+				case ARV_BUFFER_PAYLOAD_TYPE_H264:
 					g_string_append (string, "payload_type = h264\n");
 					break;
-				case ARV_GVSP_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK:
-					g_string_append (string, "payload_type = image extended chunk\n");
-					break;
-				case ARV_GVSP_PAYLOAD_TYPE_MULTIPART:
+				case ARV_BUFFER_PAYLOAD_TYPE_MULTIPART:
 					g_string_append (string, "payload_type = multipart\n");
 					break;
-				case ARV_GVSP_PAYLOAD_TYPE_JPEG:
+				case ARV_BUFFER_PAYLOAD_TYPE_JPEG:
 					g_string_append (string, "payload_type = jpeg\n");
 					break;
-				case ARV_GVSP_PAYLOAD_TYPE_JPEG2000:
+				case ARV_BUFFER_PAYLOAD_TYPE_JPEG2000:
 					g_string_append (string, "payload_type = jpeg2000\n");
 					break;
-				case ARV_GVSP_PAYLOAD_TYPE_RAWDATA:
+				case ARV_BUFFER_PAYLOAD_TYPE_RAWDATA:
 					g_string_append (string, "payload_type = raw data\n");
 					break;
-				case ARV_GVSP_PAYLOAD_TYPE_FILE:
+				case ARV_BUFFER_PAYLOAD_TYPE_FILE:
 					g_string_append (string, "payload_type = file\n");
 					break;
-				case ARV_GVSP_PAYLOAD_TYPE_MULTIZONE_IMAGE:
+				case ARV_BUFFER_PAYLOAD_TYPE_MULTIZONE_IMAGE:
 					g_string_append (string, "payload_type = multizone image\n");
 					break;
 				default:
@@ -235,8 +232,8 @@ arv_gvsp_packet_to_string (const ArvGvspPacket *packet, size_t packet_size)
 					break;
 			}
 
-                        if (payload_type == ARV_GVSP_PAYLOAD_TYPE_IMAGE ||
-                            payload_type == ARV_GVSP_PAYLOAD_TYPE_IMAGE_EXTENDED_CHUNK) {
+                        if (payload_type == ARV_BUFFER_PAYLOAD_TYPE_IMAGE ||
+                            payload_type == ARV_BUFFER_PAYLOAD_TYPE_EXTENDED_CHUNK_DATA) {
                                 guint64 timestamp;
                                 ArvPixelFormat pixel_format;
                                 guint32 width, height, x_offset, y_offset, x_padding, y_padding;
@@ -254,7 +251,7 @@ arv_gvsp_packet_to_string (const ArvGvspPacket *packet, size_t packet_size)
                                         g_string_append_printf (string, "x_padding    = %8d\n", x_padding);
                                         g_string_append_printf (string, "y_padding    = %8d\n", y_padding);
                                 }
-                        } else if (payload_type == ARV_GVSP_PAYLOAD_TYPE_MULTIPART) {
+                        } else if (payload_type == ARV_BUFFER_PAYLOAD_TYPE_MULTIPART) {
                                 g_string_append_printf (string, "n_parts      = %8u\n",
                                                         arv_gvsp_leader_packet_get_multipart_n_parts (packet));
                         }

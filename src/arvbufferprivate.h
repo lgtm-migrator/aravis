@@ -53,6 +53,7 @@ typedef struct {
         size_t received_size;
 
 	ArvBufferPayloadType payload_type;
+        gboolean has_chunks;
 
 	guint32 chunk_endianness;
 
@@ -75,9 +76,6 @@ struct _ArvBufferClass {
 };
 
 void            arv_buffer_set_n_parts                  (ArvBuffer* buffer, guint n_parts);
-
-gboolean	arv_buffer_payload_type_has_chunks 	(ArvBufferPayloadType payload_type);
-gboolean	arv_buffer_payload_type_has_aoi 	(ArvBufferPayloadType payload_type);
 
 G_END_DECLS
 
